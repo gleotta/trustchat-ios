@@ -103,7 +103,7 @@ Las cinco bibliotecas son **byte a byte idénticas** al contenido de `pkg-ios-x8
 | Warnings del linker por plataforma | Ninguno. `ld` no emitió «building for iOS Simulator, but linking in object file built for iOS» pese a que los objetos de los `.a` llevan `LC_VERSION_MIN_IPHONEOS` (sección 4.2). |
 | Targets compilados | `SimpleXChat`, `SimpleX NSE`, `SimpleX SE`, `SimpleX (iOS)` y los siete paquetes SPM |
 | Nota | El build phase `Run Script` (`scripts/ios/copy-assets.sh`) corre en cada build y sale de inmediato porque `SIMPLEX_ASSETS` no está definido. |
-| Log | Guardado fuera del repositorio; contiene rutas locales de DerivedData, sin datos de usuario. |
+| Log | Guardado en `~/trustchat-evidence/mvp0/it-01/xcodebuild-mvp0-baseline.log`; contiene rutas locales de DerivedData, sin datos de usuario. |
 
 ### 5.1. Arranque limpio
 
@@ -114,7 +114,7 @@ Las cinco bibliotecas son **byte a byte idénticas** al contenido de `pkg-ios-x8
 | Primer lanzamiento | `xcrun simctl launch <UDID> chat.simplex.app`. A los 10 s la app seguía en «Opening app…» (inicialización del runtime Haskell y creación de la base en el primer arranque, build Debug). Proceso vivo. |
 | Segundo lanzamiento | Pantalla de onboarding upstream («Be free in your network», botón «Get started») visible a los 20 s. Proceso vivo a los 20, 40 y 60 s. |
 | Estado dejado | No se creó perfil ni conexión. Simulador apagado con `simctl shutdown`; el dispositivo queda disponible para IT-11. |
-| Evidencia | Capturas `mvp0-baseline-first-launch.png`, `mvp0-baseline-launch-{20,40,60}s.png` (sin datos de usuario), guardadas fuera del repositorio junto al log. |
+| Evidencia | Capturas `mvp0-baseline-first-launch.png`, `mvp0-baseline-launch-{20,40,60}s.png` (sin datos de usuario), guardadas en `~/trustchat-evidence/mvp0/it-01/` junto al log. |
 
 ## 6. Verificación del binario nativo
 
