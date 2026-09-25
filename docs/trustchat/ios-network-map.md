@@ -5,7 +5,7 @@
 **Fecha:** 25 de septiembre de 2026  
 **Tarea:** IT-02 de `TRUSTCHAT-IOS-TASKS.md` v1.0 (Spec v1.2, Arquitectura v1.0)  
 **Rama / commit analizado:** `mvp0` en `ff531115d` (código idéntico al baseline `f15d8bab0`)  
-**Alcance:** todo camino por el que la app iOS, sus extensiones o el core Haskell enlazado obtienen un destino de red o abren una conexión. Las rutas y líneas citadas fueron leídas en este commit. Donde el camino entra en `simplexmq` (dependencia git, no incluida en el repo) se nombra el símbolo importado y se marca como **pendiente de verificar en simplexmq**.
+**Alcance:** todo camino por el que la app iOS, sus extensiones o el core Haskell enlazado obtienen un destino de red o abren una conexión. Las rutas y líneas citadas fueron leídas en este commit. Donde el camino entra en `simplexmq` (dependencia git, no incluida en el repo) se nombra el símbolo importado; las secciones 7 y 9 lo verifican sobre un clon de solo lectura al commit exacto.
 
 > **Regla de lectura:** «Política MVP» es lo que exige la especificación para la demo; «Estado» es lo que hace el código hoy. Ninguna fila implica que algo esté implementado.
 
@@ -29,7 +29,7 @@ Camino normal (usuario existente):
 |---|---|---|---|
 | 1 | UI | `SimpleXApp.onAppear` → `initChatAndMigrate` (`apps/ios/Shared/SimpleXApp.swift:53-64`, `Shared/Model/SuspendChat.swift:118-139`) | Ninguno |
 | 2 | Wrapper | `initializeChat` (`Shared/Model/SimpleXAPI.swift:2188-2230`): `chatMigrateInit`, `restartMonitor`, `apiSetAppFilePaths`, `getServerOperatorsSync`; importa `AppSettings` si hubo importación de archivo | Ninguno |
-| 3 | FFI → core | `chat_migrate_init_key` (`SimpleXChat/API.swift:24-55`) → `chatMigrateInitKey` (`src/Simplex/Chat/Mobile.hs:307-318`) → `newChatController` (`src/Simplex/Chat.hs:152-171`) | `agentServers` carga presets + DB y llama a `getSMPAgentClient` (simplexmq). Crea el agente; **pendiente de verificar en simplexmq** si abre sockets aquí |
+| 3 | FFI → core | `chat_migrate_init_key` (`SimpleXChat/API.swift:24-55`) → `chatMigrateInitKey` (`src/Simplex/Chat/Mobile.hs:307-318`) → `newChatController` (`src/Simplex/Chat.hs:152-171`) | `agentServers` carga presets + DB y llama a `getSMPAgentClient` (simplexmq). Crea el agente sin abrir sockets: `getSMPAgentClient_` (`simplexmq src/Simplex/Messaging/Agent.hs:266-295`) solo lee la DB y lanza hilos; las conexiones se abren bajo demanda |
 | 4 | Wrapper | `startChat` (`SimpleXAPI.swift:2259-2293`): `setNetworkConfig(getNetCfg())` → `apiGetNtfToken` → **`apiStartChat()`** → `registerToken` si hay token APNs → `ChatReceiver.start` | `/_network`, luego `/_start main=on snd_files=on`: suscripción a colas SMP existentes; registro en NTF si hay token |
 | 5 | Core | `APISetNetworkConfig` → agente `setNetworkConfig` (`Commands.hs:1844`); `StartChat` → agente | Sockets TLS hacia los SMP de las colas y hacia NTF (simplexmq) |
 
@@ -60,9 +60,9 @@ Columnas: fuente de destino · función (archivo:línea) · capa que lo consume 
 | Servidores NTF (`ntf3`, `ntf4.simplex.im`) | `Library/Commands.hs:147-152`; `Chat.hs:105` | Core → agente (`registerNtfToken`) | Sin push; no registrar token y quitar preset (IT-12) | TC-11, TC-12 | Sin control; sin comando runtime |
 | Chat relays preset (`smp4/5/6.simplex.im/r#…`, `useChatRelays = 2`) | `Presets.hs:93-98`; `Chat.hs:91-92` | Core → agente al unirse a canales | Canales fuera de alcance; lista vacía (IT-12) | TC-11 | Sin control |
 | Fallback a presets aleatorios con lista vacía | `Library/Internal.hs:162-169` `useServerCfgs`; `Chat.hs:282-284` `randomServerCfgs` | Core → agente | Eliminar el fallback o fallar cerrado (IT-06, ADR-05) | TC-01, TC-13 | Activo |
-| Dominios preset para short links y puerto web 443 | `Chat.hs:111-112` (`shortLinkPresetServers`, `presetDomains`) | Core → agente | Sin dominios SimpleX (IT-06) | TC-07 | Sin control; uso interno **pendiente de verificar en simplexmq** |
+| Dominios preset para short links y puerto web 443 | `Chat.hs:111-112` (`shortLinkPresetServers`, `presetDomains`) | Core → agente | Sin dominios SimpleX (IT-06) | TC-07 | `presetDomains` solo decide el puerto web 443 (`useWebPort`, `Client.hs:734-743`); `presetServers` solo se usa para avisos de cliente. La expansión de short links la hace la capa chat con `allPresetServers` |
 | Operadores preset y condiciones (auto-aceptación tras plazo) | `Presets.hs:18-44`; `Store/Profiles.hs:787-844` `getUpdateServerOperators` | Core (DB) → UI | Sin operadores públicos; sin condiciones de terceros (IT-05/06) | TC-11 | Activo |
-| Config de red por defecto del core | `Controller.hs:1255-1267` `defaultSimpleNetCfg` (`hostMode = HMOnionViaSocks`, sin SOCKS); `netCfg = defaultNetworkConfig` (simplexmq) | Core → agente | Fijar: sin SOCKS, sin onion, sin proxy privado (IT-06/12) | TC-13 | Valores de simplexmq **pendientes de verificar** |
+| Config de red por defecto del core | `Controller.hs:1255-1267` `defaultSimpleNetCfg` (`hostMode = HMOnionViaSocks`, sin SOCKS); `netCfg = defaultNetworkConfig` (simplexmq) | Core → agente | Fijar: sin SOCKS, sin onion, sin proxy privado (IT-06/12) | TC-13 | `defaultNetworkConfig` (`simplexmq Client.hs:420-439`): `smpProxyMode = SPMNever`, `smpProxyFallback = SPFAllow`, `hostMode = HMOnionViaSocks`, sin SOCKS. La app lo sobreescribe (ver 3.2) |
 
 ### 3.2. Configuración en tiempo de ejecución (Swift → core)
 
@@ -82,7 +82,7 @@ Columnas: fuente de destino · función (archivo:línea) · capa que lo consume 
 | Fuente | Función | Capa | Política MVP | Prueba | Estado |
 |---|---|---|---|---|---|
 | Universal links y esquema `simplex:` | `SimpleXApp.swift:45-52` `.onOpenURL`; `ContentView.swift:307-313` `onContinueUserActivity`; `SimpleX--iOS--Info.plist:33-45`; entitlements `applinks:simplex.chat`, `*.simplex.im`, `*.simplexonflux.com` | UI → `connectViaUrl` (`ContentView.swift:449-482`) | Quitar dominios SimpleX; esquema propio; validador antes de red (IT-04/07) | TC-07 | Sin validación de host |
-| Plan de conexión (QR, pegado, búsqueda, enlaces en mensajes) | `NewChatView.swift:1307-1655` `planAndConnect` → `apiConnectPlan` (`SimpleXAPI.swift:1035-1048`) → `connectPlan` (`Commands.hs:4306-4488`): `getShortLinkConnReq` (`Internal.hs:1568-1577`), `resolveSimplexName` | UI → core → agente (`getConnShortLink`, `joinConnection`) | Validador central que acepte solo la identidad del SMP TrustChat **antes** de resolver o abrir socket; rechazar short links y nombres (IT-07) | TC-07 | Resuelve contra el servidor del enlace salvo `PRMNever` |
+| Plan de conexión (QR, pegado, búsqueda, enlaces en mensajes) | `NewChatView.swift:1307-1655` `planAndConnect` → `apiConnectPlan` (`SimpleXAPI.swift:1035-1048`) → `connectPlan` (`Commands.hs:4306-4488`): `getShortLinkConnReq` (`Internal.hs:1568-1577`), `resolveSimplexName` | UI → core → agente (`getConnShortLink`, `joinConnection`) | Validador central que acepte solo la identidad del SMP TrustChat **antes** de resolver o abrir socket; rechazar short links y nombres (IT-07) | TC-07 | Resuelve contra el servidor del enlace salvo `PRMNever`. En simplexmq los short links se leen por SMP (`LGET`/`LKEY`, `Agent.hs:1145-1182`) directo o vía proxy según `smpProxyMode`; no hay comprobación de host contra la lista del usuario |
 | Pegado en búsqueda de la lista de chats | `ChatListView.swift:709-760` (`connect` inmediato al pegar un enlace) | UI | Mismo validador (IT-07) | TC-07 | Conecta sin confirmación |
 | Pegado y escáner en «Nuevo chat» | `NewChatView.swift:646-702, 736-816` | UI | Mismo validador (IT-07) | TC-07 | Sin validación |
 | Enlaces SimpleX dentro de mensajes | `Chat/ChatItem/MsgContentView.swift:195-225` → `appOpenUrl` / `planAndConnect` | UI | Mismo validador (IT-07) | TC-07 | Sin validación |
@@ -134,24 +134,60 @@ Columnas: fuente de destino · función (archivo:línea) · capa que lo consume 
 |---|---|---|
 | Swift (sin rebuild del core) | Orden de arranque: `setServerOperators`/`setUserServers` antes de `apiStartChat` en `startChat`, `createProfile`, `DatabaseView.startChat`, NSE y SE. No registrar APNs. Validador de enlaces antes de `planAndConnect`/`connectViaUrl`. Ocultar y bloquear UI de servidores, operadores, archivos, grupos, llamadas, escritorio remoto, previews, enlaces externos. Entitlements y esquemas | Quitar presets XFTP/NTF ni el fallback aleatorio; impedir que `connectPlan` resuelva contra un servidor ajeno si el validador se salta; controlar `joinConnection` de invitaciones recibidas por protocolo |
 | Core `simplex-chat` (rebuild con Nix) | Reemplazar `Presets.hs`/`defaultChatConfig` por el único SMP TrustChat; eliminar `_defaultNtfServers`, chat relays, `presetDomains`; eliminar el fallback de `useServerCfgs`; relajar o cambiar `validateUserServers` para XFTP; validar host en `connectPlan` y en `Subscriber.hs`; eliminar `adminContactReq` | Handshake de transporte, selección de servidor para colas nuevas, resolución de short links, proxy privado |
-| `simplexmq` (fork + rebuild) | Gate de autenticación de aplicación en el transporte (IT-10); valores de `defaultNetworkConfig`; restricción de host en `joinConnection`/`getConnShortLink`/`resolveSimplexName`; workers XFTP/NTF | — |
+| `simplexmq` (fork + rebuild) | Gate de autenticación de aplicación en el transporte (IT-10, ver sección 9); restricción de host en `joinConn`/`getConnShortLink'`/`resolveName` (hoy ninguna); `mkUserServers` (si ningún servidor habilitado tiene el rol, usa **todos** los configurados) | Presets del chat, comandos de la app, UI |
 
-## 7. Pendiente de verificar en simplexmq
+## 7. Verificado en simplexmq
 
-Sin el código fuente de `simplexmq` (tag `efaad8e7…`, `cabal.project:23-24`) no se puede afirmar:
+Clon de solo lectura en `/Users/links/git/simplexmq`, commit `efaad8e73436d60f5052f07dda6b71151ad5039b` (7.0.0.6), el mismo que fija `cabal.project:23-24`. Rutas relativas a ese clon.
 
-1. Valores de `defaultNetworkConfig` (`smpProxyMode`, `smpProxyFallback`, `hostMode`, timeouts) y el constructor exacto que desactiva el proxy privado («never»).
-2. Lista `defaultXFTPServers` de SimpleX (`Simplex.FileTransfer.Client.Presets`).
-3. Si `getSMPAgentClient` o `xftpStartWorkers` abren sockets sin colas ni archivos pendientes.
-4. Cómo el agente usa `presetDomains`, `presetServers`, `ServerCfg.enabled` y `roles` para elegir servidor de cola nueva y proxy.
-5. Si `getConnShortLink`/`restoreShortLink` contactan por SMP o HTTPS, y si comprueban el host.
-6. Si `joinConnection`/`prepareConnectionToJoin` restringen o enrutan por proxy hacia servidores nombrados en enlaces entrantes.
-7. A qué se conecta `resolveSimplexName`.
-8. Direcciones, grupo multicast y puertos de `rcConnectHost`/`rcDiscoverCtrl`.
-9. Punto exacto del handshake SMP donde insertar la autenticación de aplicación (IT-03/IT-10).
+| # | Pregunta | Respuesta verificada |
+|---|---|---|
+| 1 | `defaultNetworkConfig` y proxy privado | `src/Simplex/Messaging/Client.hs:420-439`: `smpProxyMode = SPMNever`, `smpProxyFallback = SPFAllow`, `hostMode = HMOnionViaSocks`, `sessionMode = TSMSession`, `smpWebPortServers = SWPPreset`, sin SOCKS. Constructores (`:362-374`): `SPMAlways`, `SPMUnknown` (relays desconocidos), `SPMUnprotected`, `SPMNever`; `SPFAllow`, `SPFAllowProtected`, `SPFProhibit`. Formas de texto: `always/unknown/unprotected/never` y `yes/protected/no`. La decisión está en `sendOrProxySMPCommand` (`src/Simplex/Messaging/Agent/Client.hs:1133-1216`); `SPMNever` devuelve siempre «directo». «Desconocido» = ningún host del destino está en `knownHosts` del usuario. |
+| 2 | `defaultXFTPServers` | `src/Simplex/FileTransfer/Client/Presets.hs:11-19`: `xftp1…xftp6.simplex.im`, cada uno con host `.onion`. |
+| 3 | Sockets al arrancar | Ninguno al crear el agente (`Agent.hs:266-295`). `subscribeConnections' _ [] = pure M.empty` (`Agent.hs:1530-1532`); sin colas de recepción no se abre socket (`subscribeQueues _ _ [] = pure []`, `Agent/Client.hs:1596-1597`). Workers XFTP solo para archivos pendientes (`src/Simplex/FileTransfer/Agent.hs:92-122`). NTF solo en `registerNtfToken'` o con token activo (`Agent.hs:2724+`, `NtfSubSupervisor.hs:62-103`). |
+| 4 | Selección de servidor | `mkUserServers` (`src/Simplex/Messaging/Agent/Env/SQLite.hs:120-137`): `storageSrvs`/`proxySrvs` = habilitados con el rol; **si ninguno cumple, usa todos los servidores configurados**; `nameSrvs` sin fallback; `knownHosts` = hosts de todos los configurados, habilitados o no. Cola nueva: `getNextServer c userId storageSrvs` (`Agent.hs:2983-2989`, `Agent/Client.hs:2468-2499`), prefiere operadores y hosts no usados, luego aleatorio. Proxy: `getSMPProxyClient` (`Agent/Client.hs:686-731`). `ipAddressProtected` (`:1218-1222`) = hay SOCKS, o `HMOnion` con host `.onion`. |
+| 5 | Short links | Todo por SMP: contacto → `LGET`, invitación → `LKEY` (`Agent.hs:1145-1182`, `Agent/Client.hs:1971-1983`), al servidor nombrado en el enlace, directo o vía proxy según (1). `restoreShortLink`/`shortenShortLink` (`Agent/Protocol.hs:1699-1732`) son funciones puras que expanden o acortan solo servidores preset por primer host. Única comprobación posterior: el host del enlace debe figurar en la solicitud de conexión descifrada (`A_LINK "different address"`). No hay validación contra la lista del usuario. |
+| 6 | Unión a conexiones | `joinConn` (`Agent.hs:1306-1309`) no restringe el servidor de la invitación; crea la cola de respuesta en el servidor propio (`getNextSMPServer`). `SKEY`/confirmación/invitación van por `sendOrProxySMPCommand`: con `SPMNever` directo al servidor ajeno; con `SPMUnknown` vía proxy y fallback directo según `smpProxyFallback`. |
+| 7 | `resolveSimplexName` | `RSLV` por SMP a un servidor con rol `names` (`Agent/Client.hs:1989-2005`); sin servidores de nombres lanza `NO_NAME_SERVERS`. En el servidor, `Server/Names/HttpResolver.hs:115-118` hace HTTP GET al resolver configurado. |
+| 8 | Escritorio remoto | Multicast `224.0.0.251:5227` (`src/Simplex/RemoteControl/Discovery.hs:45-52, 103-118`). `connectRCHost` abre un listener TLS con certificado de cliente obligatorio y anuncia 60 s por UDP; `connectRCCtrl` conecta por TLS al `host:port` de la invitación; `discoverRCCtrl` escucha 30 s sin abrir TCP. |
+| 9 | Handshake SMP | Ver sección 9. |
 
 ## 8. Método
 
 - Commit analizado: `ff531115d` (`mvp0`). Exploración con tres barridos (Swift, core Haskell, inventario de literales) y verificación manual de cada afirmación de las secciones 1, 2 y 3.1 leyendo los rangos citados.
 - Sin cambios en el código. Sin ejecución de red.
 - Inventario completo de literales (SMP/XFTP/NTF con hosts `.onion`, URLs de ayuda, ICE, entitlements) disponible en el mismo barrido; este documento lista solo los que tienen efecto operativo.
+- Sección 7 y 9: barrido sobre el clon de `simplexmq` y verificación manual de `defaultNetworkConfig`, `mkUserServers`, `validateCertificateChain`, `SMPClientHandshake` y `shouldUseProxy`.
+
+## 9. Handshake SMP: puntos de inserción (referencia para IT-03 / IT-10, sprint 2)
+
+Rutas relativas a `/Users/links/git/simplexmq`. Esta sección describe el código tal cual existe; no define el contrato de autenticación, que es entrega de ST-03/IT-03.
+
+**Lado cliente**
+
+| Paso | Función | Qué hace |
+|---|---|---|
+| 1 | `getProtocolClient` (`src/Simplex/Messaging/Client.hs:570-660`) | Elige host (`chooseTransportHost`), puerto 443 si web o 5223 por defecto, ALPN `smp/1`; pasa `clientCredentials = serviceCreds <$> serviceCredentials` y `Just (keyHash srv)` a `runTransportClient` |
+| 2 | `runTLSTransportClient` (`src/Simplex/Messaging/Transport/Client.hs:158-195`) + `mkTLSClientParams` (`:288-309`) | TCP o SOCKS, luego TLS. `onServerCertificate` → `validateCertificateChain` |
+| 3 | `validateCertificateChain` (`Transport/Client.hs:311-320`) | Cadena de 2 a 4 certificados; la huella SHA-256 del certificado de identidad debe ser igual al `keyHash` de la dirección, si no `UnknownCA`; luego validación X.509 contra la CA. **Este es el pin del servidor que exige IT-08.** |
+| 4 | `smpClientHandshake` (`src/Simplex/Messaging/Transport.hs:802-853`) | Recibe `SMPServerHandshake {smpVersionRange, sessionId, authPubKey}`; comprueba `sessionId == tls-unique` (`TEBadSession`); negocia versión; verifica que `authPubKey` venga de una cadena cuyo certificado de identidad coincide con `keyHash` y esté firmada por la clave del servidor; envía `SMPClientHandshake {smpVersion, keyHash, authPubKey, proxyServer, clientService}` (`:562-586`). |
+| 5 | `sessionId = tlsUnique` (`Transport.hs:922-928`, `:386-393`) | Identificador de sesión derivado de TLS Finished. Es el binding de canal disponible. |
+
+**Mecanismo existente «client service»** (`Transport.hs:588-600`, `Agent/Client.hs:617-634`)
+
+- `SMPClientHandshakeService {serviceRole, serviceCertKey}`; roles `SRMessaging | SRNotifier | SRProxy`. El certificado de servicio debe ser el mismo certificado de cliente TLS y firma la clave de sesión. Requiere versión SMP ≥ 16 (`serviceCertsSMPVersion`) y se envía solo si `useServices` está activo para el usuario; el agente genera entonces un certificado autofirmado.
+- El servidor (`smpServerHandshake`, `Transport.hs:758-800`) comprueba que la cadena TLS del par es la enviada y verifica la firma (`BAD_AUTH`).
+- **Lo que autentica:** asocia colas, suscripciones «handover» y `CSUB` a un certificado de larga duración (hash SHA-512 almacenado). **No es un gate de acceso**: un cliente sin servicio sigue ejecutando todos los comandos. Coincide con la advertencia de `TRUSTCHAT-IOS-TASKS.md` §2.1: no usar `clientService` como sinónimo de autorización sin demostrar el flujo.
+- Otro control existente: `newQueueBasicAuth` (`src/Simplex/Messaging/Server.hs:1537-1542`, `:1415-1420`), contraseña que protege solo `NEW` y `PRXY`. Es el `PASS` de la dirección `smp://`; no protege `SEND`, `SUB` ni colas existentes (ADR-03).
+
+**Lado servidor**
+
+| Paso | Función |
+|---|---|
+| Aceptación de conexión | `runClient` (`src/Simplex/Messaging/Server.hs:735-746`) → `smpServerHandshake` → `runClientTransport` (`:1063`) |
+| Lectura y verificación de transmisiones | `receive` (`Server.hs:1145-1169`) → `verifyTransmission` (`:1245`) |
+| Despacho de comandos | `client` → `processCommand` (`Server.hs:1374`, `:1515`) |
+
+Un gate por sesión conforme a ADR-03/ADR-05 tendría que situarse entre `smpServerHandshake` y `runClientTransport`, antes de que `receive` procese la primera transmisión, y en el cliente entre el paso 4 y el primer comando. La codificación, el reto y la vinculación a `tls-unique` quedan para el contrato `smp-auth-contract.md`.
+
+**`testProtocolServer`** (`Agent.hs:643-647` → `runSMPServerTest`, `Agent/Client.hs:1284-1311`): abre una conexión nueva fuera del pool, ejecuta `NEW` (con `newQueueBasicAuth`), `SKEY`/`KEY` y `DEL`, y reporta el paso fallido. Es lo que ejecuta «Test server» en la app.
