@@ -91,6 +91,8 @@
 		5CB0BA9A2827FD8800B3292C /* HowItWorks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB0BA992827FD8800B3292C /* HowItWorks.swift */; };
 		5CB2084F28DA4B4800D024EC /* RTCServers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB2084E28DA4B4800D024EC /* RTCServers.swift */; };
 		5CB346E52868AA7F001FD2EF /* SuspendChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB346E42868AA7F001FD2EF /* SuspendChat.swift */; };
+		7C7C5E4F2E9A000100A0C001 /* TrustChatConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C7C5E4F2E9A000200A0C002 /* TrustChatConfig.swift */; };
+		7C7C5E4F2E9A000300A0C003 /* TrustChatConfig.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7C7C5E4F2E9A000400A0C004 /* TrustChatConfig.plist */; };
 		5CB346E72868D76D001FD2EF /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB346E62868D76D001FD2EF /* NotificationsView.swift */; };
 		5CB346E92869E8BA001FD2EF /* PushEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB346E82869E8BA001FD2EF /* PushEnvironment.swift */; };
 		5CB634A829E437960066AD6B /* PasscodeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CB634A729E437960066AD6B /* PasscodeEntry.swift */; };
@@ -466,6 +468,8 @@
 		5CB2084E28DA4B4800D024EC /* RTCServers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RTCServers.swift; sourceTree = "<group>"; };
 		5CB2085428DE647400D024EC /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		5CB346E42868AA7F001FD2EF /* SuspendChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuspendChat.swift; sourceTree = "<group>"; };
+		7C7C5E4F2E9A000200A0C002 /* TrustChatConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustChatConfig.swift; sourceTree = "<group>"; };
+		7C7C5E4F2E9A000400A0C004 /* TrustChatConfig.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = TrustChatConfig.plist; sourceTree = "<group>"; };
 		5CB346E62868D76D001FD2EF /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		5CB346E82869E8BA001FD2EF /* PushEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushEnvironment.swift; sourceTree = "<group>"; };
 		5CB634A729E437960066AD6B /* PasscodeEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasscodeEntry.swift; sourceTree = "<group>"; };
@@ -917,6 +921,7 @@
 				5C36027227F47AD5009F19D9 /* AppDelegate.swift */,
 				5CA059C4279559F40002BEB4 /* ContentView.swift */,
 				5C764E87279CBC8E000C6508 /* Model */,
+				7C7C5E4F2E9A000500A0C005 /* TrustChat */,
 				5C2E260D27A30E2400F70299 /* Views */,
 				5CA059C5279559F40002BEB4 /* Assets.xcassets */,
 				E5C0BBE72F82B45500EA7527 /* SimpleXAssets.xcassets */,
@@ -924,6 +929,15 @@
 				5C13730C2815740A00F43030 /* DebugJSON.playground */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		7C7C5E4F2E9A000500A0C005 /* TrustChat */ = {
+			isa = PBXGroup;
+			children = (
+				7C7C5E4F2E9A000200A0C002 /* TrustChatConfig.swift */,
+				7C7C5E4F2E9A000400A0C004 /* TrustChatConfig.plist */,
+			);
+			path = TrustChat;
 			sourceTree = "<group>";
 		};
 		5CA059CB279559F40002BEB4 /* Products */ = {
@@ -1447,6 +1461,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5C55A92E283D0FDE00C4E99E /* sounds in Resources */,
+				7C7C5E4F2E9A000300A0C003 /* TrustChatConfig.plist in Resources */,
 				5CA059EF279559F40002BEB4 /* Assets.xcassets in Resources */,
 				5CC2C0FC2809BF11000C35E3 /* Localizable.strings in Resources */,
 				5CC2C0FF2809BF11000C35E3 /* SimpleX--iOS--InfoPlist.strings in Resources */,
@@ -1652,6 +1667,7 @@
 				E5AEC0AF2F91A73500270665 /* ComposeChatLinkView.swift in Sources */,
 				CEA6E91C2CBD21B0002B5DB4 /* UserDefault.swift in Sources */,
 				5CB346E52868AA7F001FD2EF /* SuspendChat.swift in Sources */,
+				7C7C5E4F2E9A000100A0C001 /* TrustChatConfig.swift in Sources */,
 				8CAEF1502D11A6A000240F00 /* ChatItemsLoader.swift in Sources */,
 				5C9C2DA52894777E00CC63B1 /* GroupProfileView.swift in Sources */,
 				5CEACCED27DEA495000BD591 /* MsgContentView.swift in Sources */,

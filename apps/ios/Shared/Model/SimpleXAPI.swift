@@ -808,6 +808,14 @@ func getUserServers() async throws -> [UserOperatorServers] {
     throw r.unexpected
 }
 
+func getUserServersSync() throws -> [UserOperatorServers] {
+    let userId = try currentUserId("getUserServers")
+    let r: ChatResponse0 = try chatSendCmdSync(.apiGetUserServers(userId: userId))
+    if case let .userServers(_, userServers) = r { return userServers }
+    logger.error("getUserServers error: \(String(describing: r))")
+    throw r.unexpected
+}
+
 func setUserServers(userServers: [UserOperatorServers]) async throws {
     let userId = try currentUserId("setUserServers")
     let r: ChatResponse2 = try await chatSendCmd(.apiSetUserServers(userId: userId, userServers: userServers))
@@ -816,9 +824,25 @@ func setUserServers(userServers: [UserOperatorServers]) async throws {
     throw r.unexpected
 }
 
+func setUserServersSync(userServers: [UserOperatorServers]) throws {
+    let userId = try currentUserId("setUserServers")
+    let r: ChatResponse2 = try chatSendCmdSync(.apiSetUserServers(userId: userId, userServers: userServers))
+    if case .cmdOk = r { return }
+    logger.error("setUserServers error: \(String(describing: r))")
+    throw r.unexpected
+}
+
 func validateServers(userServers: [UserOperatorServers]) async throws -> ([UserServersError], [UserServersWarning]) {
     let userId = try currentUserId("validateServers")
     let r: ChatResponse0 = try await chatSendCmd(.apiValidateServers(userId: userId, userServers: userServers))
+    if case let .userServersValidation(_, serverErrors, serverWarnings) = r { return (serverErrors, serverWarnings) }
+    logger.error("validateServers error: \(String(describing: r))")
+    throw r.unexpected
+}
+
+func validateServersSync(userServers: [UserOperatorServers]) throws -> ([UserServersError], [UserServersWarning]) {
+    let userId = try currentUserId("validateServers")
+    let r: ChatResponse0 = try chatSendCmdSync(.apiValidateServers(userId: userId, userServers: userServers))
     if case let .userServersValidation(_, serverErrors, serverWarnings) = r { return (serverErrors, serverWarnings) }
     logger.error("validateServers error: \(String(describing: r))")
     throw r.unexpected
@@ -2259,6 +2283,7 @@ private func chatInitialized(start: Bool, refreshInvitations: Bool) throws {
 func startChat(refreshInvitations: Bool = true, onboarding: Bool = false) throws {
     logger.debug("startChat")
     let m = ChatModel.shared
+    TrustChatConfig.shared?.enforceNetworkDefaults()
     try setNetworkConfig(getNetCfg())
     let chatRunning = try apiCheckChatRunning()
     m.users = try listUsers()
@@ -2270,6 +2295,8 @@ func startChat(refreshInvitations: Bool = true, onboarding: Bool = false) throws
         }
         (m.savedToken, m.tokenStatus, m.notificationMode, m.notificationServer) = apiGetNtfToken()
         _ = try apiStartChat()
+        // server commands require the started chat; a new profile has no queues, so nothing connects before this
+        try applyTrustChatServerPolicy()
         // deviceToken is set when AppDelegate.application(didRegisterForRemoteNotificationsWithDeviceToken:) is called,
         // when it is called before startChat
         if let token = m.deviceToken {
@@ -2279,7 +2306,7 @@ func startChat(refreshInvitations: Bool = true, onboarding: Bool = false) throws
             withAnimation {
                 let savedOnboardingStage = onboardingStageDefault.get()
                 m.onboardingStage = [.step1_SimpleXInfo, .step2_CreateProfile].contains(savedOnboardingStage) && m.users.count == 1
-                ? .step4_NetworkCommitments
+                ? (TrustChatConfig.shared != nil ? .onboardingComplete : .step4_NetworkCommitments)
                 : savedOnboardingStage
                 if m.onboardingStage == .onboardingComplete && !privacyDeliveryReceiptsSet.get() {
                     m.setDeliveryReceipts = true

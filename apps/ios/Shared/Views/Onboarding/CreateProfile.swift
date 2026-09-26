@@ -175,9 +175,10 @@ struct CreateProfile: View {
             // .isEmpty check is redundant here, but it makes it clearer what is going on
             if m.users.isEmpty || m.users.allSatisfy({ $0.user.hidden }) {
                 try startChat()
+                let stage: OnboardingStage = TrustChatConfig.shared != nil ? .onboardingComplete : .step3_ChooseServerOperators
                 withAnimation {
-                    onboardingStageDefault.set(.step3_ChooseServerOperators)
-                    m.onboardingStage = .step3_ChooseServerOperators
+                    onboardingStageDefault.set(stage)
+                    m.onboardingStage = stage
                 }
             } else {
                 onboardingStageDefault.set(.onboardingComplete)
@@ -375,8 +376,14 @@ struct CreateFirstProfile: View {
             // new users don't need the local file encryption indicator (all files are encrypted); existing users keep it on
             UserDefaults.standard.set(false, forKey: DEFAULT_PRIVACY_SHOW_FILE_ENCRYPTION)
             try startChat(onboarding: true)
-            onboardingStageDefault.set(.step3_ChooseServerOperators)
-            nextStepNavLinkActive = true
+            if TrustChatConfig.shared != nil {
+                // TrustChat servers are preset: no operator, conditions or notification steps
+                onboardingStageDefault.set(.onboardingComplete)
+                DispatchQueue.main.async { m.onboardingStage = .onboardingComplete }
+            } else {
+                onboardingStageDefault.set(.step3_ChooseServerOperators)
+                nextStepNavLinkActive = true
+            }
         } catch let error {
             showCreateProfileAlert(showAlert: showAlert, error)
         }

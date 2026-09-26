@@ -335,6 +335,27 @@ Nix utiliza para una flake. Revisar siempre:
 git status --short
 ```
 
+## Servidores prefijados de TrustChat (rama `mvp0`)
+
+Desde IT-06 la app trae los servidores TrustChat en un archivo de configuración y
+no depende de la carga manual descrita en la sección siguiente.
+
+| Archivo | Contenido | En git |
+|---|---|---|
+| `apps/ios/Shared/TrustChat/TrustChatConfig.plist` | Host, puerto y fingerprint del SMP y del XFTP; flag `pushNotifications` | Sí |
+| `apps/ios/Local.xcconfig` | `TRUSTCHAT_SMP_PASSWORD = <PASS>`; Xcode lo inyecta en `Info.plist` como `TrustChatSMPPassword` | **No** (gitignored; plantilla en `Local.xcconfig.example`) |
+
+En cada arranque, antes de la primera conexión, `applyTrustChatServerPolicy()`
+(`apps/ios/Shared/TrustChat/TrustChatConfig.swift`) deshabilita los operadores
+SimpleX y Flux, deja habilitados solo el SMP y el XFTP de TrustChat, elimina
+cualquier otro servidor agregado a mano y fija la red sin SOCKS, sin onion y sin
+conexión directa a relays ajenos. El onboarding salta la elección de operadores
+y no se registra el token APNs. Si falta `TrustChatConfig.plist`, la app se
+comporta como SimpleX upstream.
+
+Para cambiar de servidor: editar el plist (y `Local.xcconfig` si cambia el PASS)
+y recompilar. No hace falta recompilar el core Haskell.
+
 ## Configurar el servidor SMP
 
 La app puede conectarse al SMP local o al desplegado en Railway.

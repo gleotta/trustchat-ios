@@ -203,6 +203,8 @@ After completing all changes (code + documentation), you MUST run an adversarial
 | SimpleX NSE/NotificationService.swift | spec/services/notifications.md | product/flows/messaging.md |
 | Shared/Views/Chat/ChatItemsMerger.swift | spec/client/chat-view.md | product/views/chat.md |
 | SimpleX SE/ShareAPI.swift | spec/api.md | product/flows/messaging.md |
+| Shared/TrustChat/TrustChatConfig.swift | spec/architecture.md | product/rules.md |
+| Shared/TrustChat/TrustChatConfig.plist | spec/architecture.md | product/rules.md |
 
 ### Haskell Core Sources (at `../../src/Simplex/Chat/` relative to `apps/ios/`)
 

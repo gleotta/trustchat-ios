@@ -106,6 +106,16 @@
 
 ---
 
+## TrustChat Servers
+
+### RULE-24: Only TrustChat servers for new connections
+**Rule:** When `TrustChatConfig.plist` is bundled, every new SMP queue and every file upload MUST use the TrustChat SMP / XFTP servers. Preset operators (SimpleX Chat, Flux) MUST be disabled and other custom servers removed in `startChat`, right after `apiStartChat` and before the UI is shown (the core requires a started chat for server commands). Transport settings MUST NOT allow SOCKS, onion hosts or a direct fallback to a foreign relay. Onboarding MUST NOT offer operator selection. APNs registration MUST NOT happen while `pushNotifications` is false.
+**Enforced by:** `TrustChatConfig.swift` (`applyTrustChatServerPolicy`, `enforceNetworkDefaults`) called from `startChat` in `SimpleXAPI.swift`; `CreateProfile.swift` (onboarding stage); `AppDelegate.swift` (APNs). Verified by `Tests iOS/Tests_iOS.swift` `testTrustChatServersPolicy`.
+**Known limits:** existing connections keep their servers; incoming links are not yet validated against the TrustChat SMP (IT-07); NTF preset servers, chat relays and the SimpleX team contact card remain in the core without network contact.
+**Spec:** [spec/architecture.md](../spec/architecture.md)
+
+---
+
 ## Channel Integrity
 
 ### RULE-19: Channel owner cannot leave own channel

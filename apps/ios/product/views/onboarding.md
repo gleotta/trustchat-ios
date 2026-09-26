@@ -43,6 +43,8 @@ The "How it works" sheet (`HowItWorks`) explains SimpleX's privacy model with an
 
 Profile is stored locally and only shared with contacts. Footer explains this privacy property.
 
+> **TrustChat:** when `TrustChatConfig.plist` is bundled, profile creation completes onboarding directly (`onboardingComplete`). Steps 3 and 4 below are not shown; servers come from the bundled configuration (see [rules.md RULE-24](../rules.md)).
+
 ### Step 3: Server Operator Conditions (`OnboardingConditionsView`)
 
 **Stage**: `step3_ChooseServerOperators` (changed to simplified conditions view)
