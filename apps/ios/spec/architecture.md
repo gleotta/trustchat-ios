@@ -224,7 +224,7 @@ See [Database & Storage specification](database.md) for full details.
               └──────────┘
 ```
 
-### [TrustChat Server Policy (TrustChatConfig.swift)](../Shared/TrustChat/TrustChatConfig.swift#L1-L168)
+### [TrustChat Server Policy (TrustChatConfig.swift)](../Shared/TrustChat/TrustChatConfig.swift#L1-L269)
 
 TrustChat builds bundle `Shared/TrustChat/TrustChatConfig.plist` (SMP and XFTP host, port and fingerprint; `pushNotifications` flag). The create passwords (SMP queues: `TRUSTCHAT_SMP_PASSWORD` → `Info.plist` key `TrustChatSMPPassword`; XFTP files: `TRUSTCHAT_XFTP_PASSWORD` → `TrustChatXFTPPassword`) are injected at build time from the gitignored `Local.xcconfig`; an empty value means the server has no password. When the plist is absent, [`TrustChatConfig.shared`](../Shared/TrustChat/TrustChatConfig.swift#L23-L33) is `nil` and the app behaves as upstream.
 
@@ -246,6 +246,8 @@ Onboarding steps 3 and 4 are skipped after profile creation ([`CreateFirstProfil
 When a CallKit call is active during backgrounding, chat suspension is deferred (`CallController.shared.shouldSuspendChat = true`) until the call ends, to maintain the WebRTC session.
 
 ---
+
+**Incoming links (IT-07).** [`validateLink`](../Shared/TrustChat/TrustChatConfig.swift#L199-L207) parses a link offline ([`trustChatLinkServers`](../Shared/TrustChat/TrustChatConfig.swift#L217-L269): full links via the `smp=` queue URIs and the core's `parseServerAddress`, short links via authority/`h`, `p` and `c`) and throws unless every server equals the TrustChat SMP (host, port, fingerprint). [`apiConnectPlan`](../Shared/Model/SimpleXAPI.swift#L1066-L1077) calls it for every non-local plan before sending `/_connect plan`, shows one alert and returns `nil`, so the existing failure path of `planAndConnect` runs (progress stops, cleanup). Names are rejected; `.never` lookups are not validated because they never reach the network.
 
 ## [6. Extension Architecture](../SimpleX%20NSE/NotificationService.swift#L1-L1228)
 

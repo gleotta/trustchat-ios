@@ -132,6 +132,133 @@ class Tests_iOS: XCTestCase {
         add(summary)
     }
 
+    // TrustChat IT-07 / TC-07: links naming any server other than the TrustChat SMP are rejected before the core
+    // sees them; a link on the TrustChat SMP passes the validator (the core then answers about the link itself).
+    func testTrustChatRejectsForeignLink() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let trustChatHost = "iriguchi.proxy.rlwy.net"
+        let newChatButton = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'compose' OR label CONTAINS[c] 'pencil' OR label CONTAINS[c] 'new chat'")).firstMatch
+        XCTAssertTrue(newChatButton.waitForExistence(timeout: 180), "chat list")
+        let okButton = app.buttons["Ok"]
+        if okButton.waitForExistence(timeout: 5) { okButton.tap() }
+
+        // 1. the SimpleX team address (simplex: scheme short link, host in h=, preset domain: no port, no fingerprint)
+        let msg1 = expectRejected(app, "simplex:/a#lrdvu2d8A1GumSmoKb2krQmtKhWXq-tyGpHuM7aMwsw?h=smp6.simplex.im", "01-simplex-team-link-rejected")
+        XCTAssertTrue(msg1.contains("smp6.simplex.im"), "message names the foreign server: \(msg1)")
+
+        // 2. the same address as an https short link on the SimpleX preset domain
+        _ = expectRejected(app, "https://smp6.simplex.im/a#lrdvu2d8A1GumSmoKb2krQmtKhWXq-tyGpHuM7aMwsw", "02-preset-domain-link-rejected")
+
+        // 3. the profile's own one-time link (TrustChat SMP) passes the validator. The "New chat" sheet left open by
+        // the paste flow has a "Create 1-time link" segment; the chat-list card is the fallback on a fresh list.
+        var ownLink: String? = nil
+        let linkText = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", trustChatHost)).firstMatch
+        let createSegment = app.buttons.matching(NSPredicate(format: "label == '1-time link' OR label == 'Create 1-time link'")).firstMatch
+        let inviteCard = app.buttons["Let someone connect to you"]
+        if createSegment.waitForExistence(timeout: 5) {
+            createSegment.tap()
+            if linkText.waitForExistence(timeout: 120) { ownLink = linkText.label }
+            attach(app, "03-own-link")
+        } else if inviteCard.waitForExistence(timeout: 10) {
+            inviteCard.tap()
+            let privateInvite = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Invite someone privately'")).firstMatch
+            if privateInvite.waitForExistence(timeout: 15) { privateInvite.tap() }
+            if linkText.waitForExistence(timeout: 120) { ownLink = linkText.label }
+            attach(app, "03-own-link")
+            let back = app.buttons["Back"]
+            if back.waitForExistence(timeout: 5) { back.tap() }
+        } else {
+            attach(app, "03-no-own-link-entry")
+        }
+        guard let ownLink, let cRange = ownLink.range(of: "c=") else {
+            let a = XCTAttachment(string: "own link not available on this run; positive and wrong-fingerprint cases skipped")
+            a.name = "note"; a.lifetime = .keepAlways; add(a)
+            return
+        }
+        let ownAttachment = XCTAttachment(string: ownLink)
+        ownAttachment.name = "own-link"; ownAttachment.lifetime = .keepAlways; add(ownAttachment)
+        pasteLink(app, ownLink)
+        let rejected = app.alerts["Not a TrustChat link"]
+        XCTAssertFalse(rejected.waitForExistence(timeout: 30), "own TrustChat link must not be rejected")
+        attach(app, "04-own-link-accepted")
+        let anyAlert = app.alerts.firstMatch
+        if anyAlert.exists { anyAlert.buttons.firstMatch.tap() }
+
+        // 4. the own link with a different fingerprint (same host and port) is rejected; relaunch to a clean chat list
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(newChatButton.waitForExistence(timeout: 180), "chat list after relaunch")
+        if okButton.waitForExistence(timeout: 5) { okButton.tap() }
+        let fpStart = cRange.upperBound
+        let fpEnd = ownLink.index(fpStart, offsetBy: 4, limitedBy: ownLink.endIndex) ?? ownLink.endIndex
+        let replacement = ownLink[fpStart..<fpEnd] == "AAAA" ? "BBBB" : "AAAA"
+        let wrongFingerprint = ownLink.replacingCharacters(in: fpStart..<fpEnd, with: replacement)
+        let msg4 = expectRejected(app, wrongFingerprint, "05-wrong-fingerprint-rejected")
+        XCTAssertTrue(msg4.contains(trustChatHost), "message names the host: \(msg4)")
+    }
+
+    // Full link (simplex:/contact#/?v=…&smp=…) naming a queue on a SimpleX server: parsed via the smp= queue URIs.
+    func testTrustChatRejectsForeignFullLink() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let newChatButton = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'compose' OR label CONTAINS[c] 'pencil' OR label CONTAINS[c] 'new chat'")).firstMatch
+        XCTAssertTrue(newChatButton.waitForExistence(timeout: 180), "chat list")
+        let okButton = app.buttons["Ok"]
+        if okButton.waitForExistence(timeout: 5) { okButton.tap() }
+        // synthetic but well-formed queue: 32-byte key hash, 32-byte queue id, X25519 public key
+        let queue = "smp://u2dS9sG8nMNURyZwqASV4yROM28Er0luVTx5X1CsMrU=@smp4.simplex.im/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=#/?v=1-4&dh=MCowBQYDK2VuAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        let encoded = queue.addingPercentEncoding(withAllowedCharacters: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.~")))!
+        let msg = expectRejected(app, "simplex:/contact#/?v=2-7&smp=\(encoded)", "01-foreign-full-link-rejected")
+        XCTAssertTrue(msg.contains("smp4.simplex.im"), "message names the foreign server: \(msg)")
+    }
+
+    /// Enters the link, waits for the TrustChat rejection alert, attaches a screenshot and returns the alert text.
+    private func expectRejected(_ app: XCUIApplication, _ link: String, _ name: String) -> String {
+        pasteLink(app, link)
+        let alert = app.alerts["Not a TrustChat link"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 60), "\(name): rejection alert; alerts: \(app.alerts.allElementsBoundByIndex.map { $0.label }); texts: \(app.staticTexts.allElementsBoundByIndex.map { $0.label })")
+        let msg = alert.staticTexts.allElementsBoundByIndex.map { $0.label }.joined(separator: " | ")
+        attach(app, name)
+        let a = XCTAttachment(string: msg)
+        a.name = name + "-alert"; a.lifetime = .keepAlways; add(a)
+        if alert.exists { alert.buttons.firstMatch.tap() }
+        return msg
+    }
+
+    // Pastes the link through Compose → "Scan / Paste link" → "Tap to paste link". The pasteboard is set by the test
+    // runner, so iOS asks the user to allow the paste (SpringBoard alert) while the app's main thread waits.
+    // Typing into the search field is not usable: the app connects as soon as a prefix of the text parses as a link.
+    private func pasteLink(_ app: XCUIApplication, _ link: String) {
+        UIPasteboard.general.string = link
+        let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Tap to paste link'")).firstMatch
+        let connectSegment = app.buttons["Connect via link"]
+        if !paste.exists && connectSegment.exists { connectSegment.tap() }
+        if !paste.waitForExistence(timeout: 5) {
+            for label in ["Back", "Cancel", "Close"] {
+                let b = app.buttons[label]
+                if b.exists && b.isHittable { b.tap(); break }
+            }
+            let card = app.buttons["Connect via link or QR code"]
+            let compose = app.buttons["Compose"]
+            if card.waitForExistence(timeout: 5) {
+                card.tap()
+            } else if compose.waitForExistence(timeout: 10) {
+                compose.tap()
+                let scanPaste = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Scan / Paste link'")).firstMatch
+                XCTAssertTrue(scanPaste.waitForExistence(timeout: 30), "Scan / Paste link entry; texts: \(app.staticTexts.allElementsBoundByIndex.map { $0.label })")
+                scanPaste.tap()
+            } else {
+                XCTFail("neither the connect card nor the Compose button is visible; buttons: \(app.buttons.allElementsBoundByIndex.map { $0.label })")
+            }
+        }
+        XCTAssertTrue(paste.waitForExistence(timeout: 30), "paste button; texts: \(app.staticTexts.allElementsBoundByIndex.map { $0.label })")
+        paste.tap()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.buttons["Allow Paste"]
+        if allow.waitForExistence(timeout: 20) { allow.tap() }
+    }
+
     private func openSettings(_ app: XCUIApplication) {
         let settings = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'Settings'")).firstMatch
         let avatar = app.toolbars.firstMatch.images.firstMatch

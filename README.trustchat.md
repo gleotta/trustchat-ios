@@ -356,6 +356,17 @@ comporta como SimpleX upstream.
 Para cambiar de servidor: editar el plist (y `Local.xcconfig` si cambia el PASS)
 y recompilar. No hace falta recompilar el core Haskell.
 
+**Enlaces entrantes (IT-07).** Todo enlace o QR (pegado, escaneado, abierto desde
+otra app o tocado en un mensaje) se analiza sin red antes de pasarlo al core y se
+rechaza con un aviso si nombra cualquier servidor que no sea exactamente el SMP
+TrustChat (host, puerto y fingerprint). Un QR de SimpleX no genera DNS ni TCP.
+Los enlaces cortos TrustChat (`https://<host SMP>/i#…?p=…&c=…`) funcionan pegados
+o escaneados desde la app; **tocados fuera de la app abren Safari**, y como el host
+SMP en Railway no sirve HTTPS en el 443, se ve la página de Railway. Para enlaces
+tocables hace falta un host con el 443 propio (página de aterrizaje y
+`apple-app-site-association` del `smp-server`, o un dominio de aterrizaje
+separado); ver plan de sprint.
+
 ### Servidor XFTP en Railway (imagen oficial `simplexchat/xftp-server`)
 
 - Exponerlo con **TCP Proxy** (no con dominio HTTP): el puerto interno es 443 y el

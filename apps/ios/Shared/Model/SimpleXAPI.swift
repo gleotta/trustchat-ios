@@ -1061,6 +1061,19 @@ func apiConnectPlan(connLink: String, resolveMode: PlanResolveMode = .unknown, l
         logger.error("apiConnectPlan: no current user")
         return nil
     }
+    // TrustChat: a link naming any server other than the TrustChat SMP is rejected here, before the core resolves or
+    // connects to it (IT-07). Local-only lookups (.never) do not reach the network and are not validated.
+    if resolveMode != .never, let cfg = TrustChatConfig.shared {
+        do {
+            try cfg.validateLink(connLink)
+        } catch {
+            logger.warning("apiConnectPlan: link rejected by TrustChat policy")
+            await MainActor.run {
+                showAlert(NSLocalizedString("Not a TrustChat link", comment: "alert title"), message: error.localizedDescription)
+            }
+            return nil
+        }
+    }
     let r: APIResult<ChatResponse1>? = await chatApiSendCmdWithRetry(.apiConnectPlan(userId: userId, connLink: connLink, resolveMode: resolveMode, linkOwnerSig: linkOwnerSig), inProgress: inProgress)
     if case let .result(.connectionPlan(_, connLink, planSimplexName, otherSimplexName, connPlan)) = r {
         return ConnectionPlanResult(connLink: connLink, planSimplexName: planSimplexName, otherSimplexName: otherSimplexName, connectionPlan: connPlan)

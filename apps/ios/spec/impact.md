@@ -77,8 +77,8 @@
 | Shared/Views/Database/ | PC23, PC26 | High | Database encryption and export |
 | Shared/Views/Migration/ | PC26 | High | Device migration — data portability |
 | Shared/Model/ChatModel.swift | PC1 through PC31 | High | Central state — all features depend on it |
-| Shared/Model/SimpleXAPI.swift | PC1 through PC31 | High | FFI bridge — all commands flow through here |
-| Shared/TrustChat/TrustChatConfig.swift | PC12, PC25, PC32 | High | TrustChat preset servers — rewrites user servers before the first connection |
+| Shared/Model/SimpleXAPI.swift | PC1 through PC31, PC32 | High | FFI bridge — all commands flow through here |
+| Shared/TrustChat/TrustChatConfig.swift | PC12, PC25, PC32 | High | TrustChat preset servers — rewrites user servers before the first connection; rejects links naming other servers |
 | Shared/TrustChat/TrustChatConfig.plist | PC25, PC32 | High | TrustChat SMP/XFTP host, port, fingerprint and push flag |
 | Shared/Model/AppAPITypes.swift | PC1 through PC31 | High | Command/response types — all API communication |
 | Shared/Model/NtfManager.swift | PC18 | High | Notification delivery |

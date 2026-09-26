@@ -166,3 +166,104 @@ private func syncTrustChatServers(_ list: inout [UserServer], _ srv: TrustChatSe
     }
     return changed
 }
+
+// MARK: - Incoming links (IT-07)
+
+enum TrustChatLinkError: LocalizedError {
+    case notLink
+    case foreignServer(String)
+    case wrongIdentity(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .notLink:
+            NSLocalizedString("Only TrustChat links can be used to connect.", comment: "alert message")
+        case let .foreignServer(host):
+            String.localizedStringWithFormat(
+                NSLocalizedString("This link uses the server %@, which is not the TrustChat server. Ask your contact for a TrustChat link.", comment: "alert message"),
+                host
+            )
+        case let .wrongIdentity(host):
+            String.localizedStringWithFormat(
+                NSLocalizedString("This link names the TrustChat server %@ with a different port or fingerprint. Ask your contact for a new TrustChat link.", comment: "alert message"),
+                host
+            )
+        }
+    }
+}
+
+extension TrustChatConfig {
+    // Rejects any connection link whose servers are not exactly the TrustChat SMP (host, port and fingerprint)
+    // before the core sees it, so no name is resolved and no socket is opened for a foreign link.
+    // SimpleX names (@name) are rejected too: they resolve on the network.
+    func validateLink(_ text: String) throws {
+        let smp = try smpAddress().parsed
+        for s in try trustChatLinkServers(text) {
+            let host = s.hostnames.first ?? "?"
+            guard s.hostnames == smp.hostnames else { throw TrustChatLinkError.foreignServer(host) }
+            guard s.port == smp.port, base64Unpadded(s.keyHash) == base64Unpadded(smp.keyHash)
+            else { throw TrustChatLinkError.wrongIdentity(host) }
+        }
+    }
+}
+
+private func base64Unpadded(_ s: String) -> String {
+    s.trimmingCharacters(in: CharacterSet(charactersIn: "="))
+}
+
+// Servers named by a link, parsed offline. Full links (simplex:/invitation#/?v=…&smp=q1;q2, simplex:/contact#…, or their
+// https://simplex.chat/… form) name their queues in `smp`; short links (https://host/i#…?p=…&c=…, simplex:/i#…?h=…&p=…&c=…)
+// name the server by authority or `h`, with port `p` and key hash `c` (both absent for SimpleX preset domains).
+private func trustChatLinkServers(_ text: String) throws -> [ServerAddress] {
+    let link = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let hash = link.firstIndex(of: "#") else { throw TrustChatLinkError.notLink }
+    let head = String(link[..<hash])
+    let fragment = String(link[link.index(after: hash)...])
+    var host: String? = nil
+    let path: String
+    if head.hasPrefix("simplex:/") {
+        path = String(head.dropFirst("simplex:/".count))
+    } else if head.hasPrefix("https://") {
+        let rest = head.dropFirst("https://".count)
+        guard let slash = rest.firstIndex(of: "/") else { throw TrustChatLinkError.notLink }
+        host = String(rest[..<slash])
+        path = String(rest[rest.index(after: slash)...])
+    } else {
+        throw TrustChatLinkError.notLink
+    }
+    let params = trustChatLinkParams(fragment)
+    switch path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) {
+    case "invitation", "contact":
+        guard let smp = params["smp"], !smp.isEmpty else { throw TrustChatLinkError.notLink }
+        return try smp.split(separator: ";").map { q in
+            guard let s = trustChatQueueServer(String(q)) else { throw TrustChatLinkError.notLink }
+            return s
+        }
+    case let t where t.count == 1:
+        var hosts: [String] = []
+        if let host { hosts.append(host) }
+        if let h = params["h"] { hosts += h.split(separator: ",").map(String.init) }
+        guard !hosts.isEmpty else { throw TrustChatLinkError.notLink }
+        return [ServerAddress(serverProtocol: .smp, hostnames: hosts, port: params["p"] ?? "", keyHash: params["c"] ?? "")]
+    default:
+        throw TrustChatLinkError.notLink
+    }
+}
+
+private func trustChatLinkParams(_ fragment: String) -> [String: String] {
+    guard let q = fragment.firstIndex(of: "?") else { return [:] }
+    var params: [String: String] = [:]
+    for kv in fragment[fragment.index(after: q)...].split(separator: "&") {
+        let parts = kv.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2 else { continue }
+        params[String(parts[0])] = String(parts[1]).removingPercentEncoding ?? String(parts[1])
+    }
+    return params
+}
+
+// smp://<keyHash>@<hosts>:<port>/<queueId>#… → the server part, parsed by the core's offline parser
+private func trustChatQueueServer(_ queueUri: String) -> ServerAddress? {
+    guard queueUri.hasPrefix("smp://") else { return nil }
+    let authority = queueUri.dropFirst("smp://".count).prefix { $0 != "/" }
+    return parseServerAddress("smp://" + authority)
+}

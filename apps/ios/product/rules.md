@@ -111,7 +111,13 @@
 ### RULE-24: Only TrustChat servers for new connections
 **Rule:** When `TrustChatConfig.plist` is bundled, every new SMP queue and every file upload MUST use the TrustChat SMP / XFTP servers. Preset operators (SimpleX Chat, Flux) MUST be disabled and other custom servers removed in `startChat`, right after `apiStartChat` and before the UI is shown (the core requires a started chat for server commands). Transport settings MUST NOT allow SOCKS, onion hosts or a direct fallback to a foreign relay. Onboarding MUST NOT offer operator selection. APNs registration MUST NOT happen while `pushNotifications` is false.
 **Enforced by:** `TrustChatConfig.swift` (`applyTrustChatServerPolicy`, `enforceNetworkDefaults`) called from `startChat` in `SimpleXAPI.swift`; `CreateProfile.swift` (onboarding stage); `AppDelegate.swift` (APNs). Verified by `Tests iOS/Tests_iOS.swift` `testTrustChatServersPolicy`.
-**Known limits:** existing connections keep their servers; incoming links are not yet validated against the TrustChat SMP (IT-07); NTF preset servers, chat relays and the SimpleX team contact card remain in the core without network contact.
+**Known limits:** existing connections keep their servers; NTF preset servers, chat relays and the SimpleX team contact card remain in the core without network contact.
+**Spec:** [spec/architecture.md](../spec/architecture.md)
+
+### RULE-25: Only TrustChat links can be used to connect
+**Rule:** When `TrustChatConfig.plist` is bundled, a connection link (QR, pasted text, chat-list search, `simplex:`/`https` URL opened from another app, link tapped in a message) MUST be parsed offline and rejected with an alert unless every server it names is exactly the TrustChat SMP: same host, port and fingerprint. Rejection MUST happen before the core receives the link, so no name resolution, short-link fetch or socket happens for a foreign link. SimpleX names (`@name`) are rejected for the same reason; local-only lookups (`resolveMode == .never`) are not affected.
+**Enforced by:** `TrustChatConfig.swift` (`validateLink`, `trustChatLinkServers`) called from `apiConnectPlan` in `SimpleXAPI.swift`, the single entry to the core's `/_connect plan`. Verified by `Tests iOS/Tests_iOS.swift` `testTrustChatRejectsForeignLink`.
+**Known limits:** contacts with historical queues on foreign servers are not detected (IT-07.5); group invitations received by protocol are handled by the core (groups are out of scope, IT-12); a TrustChat link tapped outside the app opens Safari, where the SMP host has no landing page.
 **Spec:** [spec/architecture.md](../spec/architecture.md)
 
 ---
