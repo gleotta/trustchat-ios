@@ -817,6 +817,19 @@ Usar **Product → Clean Build Folder**, cerrar Xcode, volver a abrir el proyect
 y compilar nuevamente. No borrar indiscriminadamente todo `~/Library` ni el
 Nix store.
 
+### La app queda pausada en Xcode al recibir un mensaje (simulador)
+
+Síntoma: con Run desde Xcode, al llegar un mensaje la app deja de responder y el
+depurador muestra un hilo `ghc_worker` con `EXC_BAD_ACCESS` en `threadPaused`.
+Sin Xcode la app se cierra en lugar de congelarse. Es un crash del runtime de
+GHC 9.6.3 con el recolector no-móvil (`-xn`), compatible con los bugs corregidos
+en GHC 9.6.4/9.6.5. El fork desactiva `-xn` **solo en builds de simulador**
+(`apps/ios/SimpleXChat/hs_init.c`, `TARGET_OS_SIMULATOR`); en iPhone físico el
+runtime arranca igual que upstream. El arreglo de fondo, recompilar el core con
+GHC ≥ 9.6.5 (`compiler-nix-name` en `flake.nix`, rebuild completo de
+dependencias), está registrado para el sprint 2. Si reaparece en dispositivo,
+quitar `-xn` también ahí es un cambio de una línea en el mismo archivo.
+
 ## Política de Git
 
 Antes de comenzar una modificación:

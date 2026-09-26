@@ -130,6 +130,10 @@ All FFI calls are wrapped in [`beginBGTask()`](../Shared/Model/SimpleXAPI.swift#
 
 ---
 
+### [Haskell runtime options (hs_init.c)](../SimpleXChat/hs_init.c#L14-L34)
+
+Each target starts the GHC runtime with its own `hs_init_with_rtsopts` arguments: the app uses `-A64m -H64m -xn` (non-moving GC), the NSE and SE use small heaps and no `-xn`. **TrustChat:** on simulator builds (`TARGET_OS_SIMULATOR`) the app omits `-xn`, because GHC 9.6.3's non-moving GC crashes in `threadPaused` (`EXC_BAD_ACCESS` in a `ghc_worker` thread) on the x86_64 simulator when messages are received; device builds are unchanged. The permanent fix is a core built with GHC >= 9.6.5 (planned for sprint 2, see `README.trustchat.md`).
+
 ## [3. Event Streaming](../Shared/Model/SimpleXAPI.swift#L2220-L2916)
 
 The Haskell core emits async events (new messages, connection status changes, file progress, etc.) that are not direct responses to commands. These are received via polling:
