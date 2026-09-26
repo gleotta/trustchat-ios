@@ -220,14 +220,14 @@ See [Database & Storage specification](database.md) for full details.
               └──────────┘
 ```
 
-### [TrustChat Server Policy (TrustChatConfig.swift)](../Shared/TrustChat/TrustChatConfig.swift#L1-L162)
+### [TrustChat Server Policy (TrustChatConfig.swift)](../Shared/TrustChat/TrustChatConfig.swift#L1-L168)
 
-TrustChat builds bundle `Shared/TrustChat/TrustChatConfig.plist` (SMP and XFTP host, port and fingerprint; `pushNotifications` flag). The SMP queue-creation password is injected at build time from the gitignored `Local.xcconfig` (`TRUSTCHAT_SMP_PASSWORD`) into the app `Info.plist` key `TrustChatSMPPassword`. When the plist is absent, [`TrustChatConfig.shared`](../Shared/TrustChat/TrustChatConfig.swift#L23-L33) is `nil` and the app behaves as upstream.
+TrustChat builds bundle `Shared/TrustChat/TrustChatConfig.plist` (SMP and XFTP host, port and fingerprint; `pushNotifications` flag). The create passwords (SMP queues: `TRUSTCHAT_SMP_PASSWORD` → `Info.plist` key `TrustChatSMPPassword`; XFTP files: `TRUSTCHAT_XFTP_PASSWORD` → `TrustChatXFTPPassword`) are injected at build time from the gitignored `Local.xcconfig`; an empty value means the server has no password. When the plist is absent, [`TrustChatConfig.shared`](../Shared/TrustChat/TrustChatConfig.swift#L23-L33) is `nil` and the app behaves as upstream.
 
 [`startChat()`](../Shared/Model/SimpleXAPI.swift#L2283-L2319) runs two hooks before any user action can open a connection:
 
-1. [`enforceNetworkDefaults()`](../Shared/TrustChat/TrustChatConfig.swift#L53-L58) before `setNetworkConfig(getNetCfg())`: no SOCKS proxy, public hosts only, `smpProxyMode = .unknown`, `smpProxyFallback = .prohibit`.
-2. [`applyTrustChatServerPolicy()`](../Shared/TrustChat/TrustChatConfig.swift#L101-L135) immediately after `apiStartChat()` (the core's `APIGetUserServers` / `APISetUserServers` require a started chat; a new profile has no queues, so no connection exists yet): reads the current user's servers (`getUserServersSync`), disables every preset operator, keeps exactly the TrustChat SMP and XFTP as enabled custom servers (other custom servers are deleted), validates (`validateServersSync`) and writes them (`setUserServersSync`, core `APISetUserServers`). Addresses are validated with `parseServerAddress`; a mismatch throws and the chat does not start. The core persists the result, so the NSE and SE inherit it.
+1. [`enforceNetworkDefaults()`](../Shared/TrustChat/TrustChatConfig.swift#L58-L63) before `setNetworkConfig(getNetCfg())`: no SOCKS proxy, public hosts only, `smpProxyMode = .unknown`, `smpProxyFallback = .prohibit`.
+2. [`applyTrustChatServerPolicy()`](../Shared/TrustChat/TrustChatConfig.swift#L107-L141) immediately after `apiStartChat()` (the core's `APIGetUserServers` / `APISetUserServers` require a started chat; a new profile has no queues, so no connection exists yet): reads the current user's servers (`getUserServersSync`), disables every preset operator, keeps exactly the TrustChat SMP and XFTP as enabled custom servers (other custom servers are deleted), validates (`validateServersSync`) and writes them (`setUserServersSync`, core `APISetUserServers`). Addresses are validated with `parseServerAddress`; a mismatch throws and the chat does not start. The core persists the result, so the NSE and SE inherit it.
 
 Onboarding steps 3 and 4 are skipped after profile creation ([`CreateFirstProfile.createProfile`](../Shared/Views/Onboarding/CreateProfile.swift#L366-L392)) and APNs registration is skipped in [`AppDelegate`](../Shared/AppDelegate.swift#L16-L25) when `pushNotifications` is false.
 

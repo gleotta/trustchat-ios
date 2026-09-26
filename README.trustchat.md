@@ -343,7 +343,7 @@ no depende de la carga manual descrita en la sección siguiente.
 | Archivo | Contenido | En git |
 |---|---|---|
 | `apps/ios/Shared/TrustChat/TrustChatConfig.plist` | Host, puerto y fingerprint del SMP y del XFTP; flag `pushNotifications` | Sí |
-| `apps/ios/Local.xcconfig` | `TRUSTCHAT_SMP_PASSWORD = <PASS>`; Xcode lo inyecta en `Info.plist` como `TrustChatSMPPassword` | **No** (gitignored; plantilla en `Local.xcconfig.example`) |
+| `apps/ios/Local.xcconfig` | `TRUSTCHAT_SMP_PASSWORD = <PASS>` y `TRUSTCHAT_XFTP_PASSWORD = <PASS>`; Xcode los inyecta en `Info.plist` como `TrustChatSMPPassword` y `TrustChatXFTPPassword` | **No** (gitignored; plantilla en `Local.xcconfig.example`) |
 
 En cada arranque, antes de la primera conexión, `applyTrustChatServerPolicy()`
 (`apps/ios/Shared/TrustChat/TrustChatConfig.swift`) deshabilita los operadores
@@ -355,6 +355,35 @@ comporta como SimpleX upstream.
 
 Para cambiar de servidor: editar el plist (y `Local.xcconfig` si cambia el PASS)
 y recompilar. No hace falta recompilar el core Haskell.
+
+### Servidor XFTP en Railway (imagen oficial `simplexchat/xftp-server`)
+
+- Exponerlo con **TCP Proxy** (no con dominio HTTP): el puerto interno es 443 y el
+  cliente habla XFTP sobre TLS con ALPN `xftp/1`, no HTTP.
+- Volumen montado en `/etc/opt/simplex-xftp`: ahí viven la identidad (certificados,
+  fingerprint) y `file-server.ini`. Sin volumen, cada redeploy cambia el fingerprint.
+- `ADDR`, `QUOTA` y `PASS` solo se aplican en el **primer arranque** (`xftp-server init`).
+  Con `PASS`, el ini queda con `create_password` y la app necesita
+  `TRUSTCHAT_XFTP_PASSWORD`; cambiarlo después exige editar el ini en el volumen.
+- Los archivos subidos se escriben en `/srv/xftp` (`[FILES] path` del ini). **El
+  servidor no crea ese directorio**: en `docker-compose-xftp.yml` upstream lo monta
+  como volumen. En Railway hay un solo volumen, así que hay que crearlo al arrancar.
+  En *Settings → Deploy → Custom Start Command* (reemplaza el `ENTRYPOINT` de la imagen):
+
+  ```
+  /bin/sh -c "mkdir -p /srv/xftp && exec /usr/local/bin/entrypoint"
+  ```
+
+  Los archivos quedan en el sistema de archivos efímero del contenedor: se pierden
+  en cada redeploy, lo que es aceptable porque XFTP los expira igual (48 h por
+  defecto). La identidad sigue en el volumen.
+- Diagnóstico con *Ajustes → Network & servers → Your servers → XFTP → Test server*:
+
+  | Mensaje | Causa |
+  |---|---|
+  | `Test failed at step Create file. Server requires authorization to upload, check password.` | El servidor tiene `create_password` y la app no manda el PASS (`TRUSTCHAT_XFTP_PASSWORD` vacío). |
+  | `Test failed at step Upload file. Error: XFTP(xftpErr: FILE_IO)` | El servidor aceptó el archivo pero no pudo escribirlo: falta `/srv/xftp` o no es escribible. En los logs de Railway aparece `receiveFile error: ...`. |
+  | `Test failed at step Connect ...` | Red, TLS o fingerprint (ver `Fingerprint in server address does not match certificate`). |
 
 ## Configurar el servidor SMP
 

@@ -32,20 +32,25 @@ struct TrustChatConfig: Decodable {
         }
     }
 
-    // Injected by Local.xcconfig (TRUSTCHAT_SMP_PASSWORD) into Info.plist at build time; never committed.
-    private var smpPassword: String? {
-        let p = (Bundle.main.object(forInfoDictionaryKey: "TrustChatSMPPassword") as? String)?
+    // Create passwords (SMP queues, XFTP files) are injected by Local.xcconfig (TRUSTCHAT_SMP_PASSWORD,
+    // TRUSTCHAT_XFTP_PASSWORD) into Info.plist at build time; never committed.
+    private func password(_ infoKey: String) -> String? {
+        let p = (Bundle.main.object(forInfoDictionaryKey: infoKey) as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return p.isEmpty ? nil : p
     }
 
     func smpAddress() throws -> TrustChatServerAddress {
-        let auth = smpPassword.map { ":" + $0 } ?? ""
-        return try TrustChatServerAddress(.smp, "smp://\(smpServer.fingerprint)\(auth)@\(smpServer.host):\(smpServer.port)", smpServer)
+        try address(.smp, smpServer, password("TrustChatSMPPassword"))
     }
 
     func xftpAddress() throws -> TrustChatServerAddress {
-        try TrustChatServerAddress(.xftp, "xftp://\(xftpServer.fingerprint)@\(xftpServer.host):\(xftpServer.port)", xftpServer)
+        try address(.xftp, xftpServer, password("TrustChatXFTPPassword"))
+    }
+
+    private func address(_ serverProtocol: ServerProtocol, _ s: Server, _ pass: String?) throws -> TrustChatServerAddress {
+        let auth = pass.map { ":" + $0 } ?? ""
+        return try TrustChatServerAddress(serverProtocol, "\(serverProtocol.rawValue)://\(s.fingerprint)\(auth)@\(s.host):\(s.port)", s)
     }
 
     // Transport settings the user must not be able to change: no SOCKS, public hosts only,

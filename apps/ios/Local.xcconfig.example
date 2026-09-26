@@ -3,3 +3,6 @@
 // TrustChat SMP queue-creation password (the PASS part of smp://<fingerprint>:<PASS>@host:port).
 // Injected into Info.plist as TrustChatSMPPassword. Must not contain '@'. Leave unset if the server has no password.
 TRUSTCHAT_SMP_PASSWORD =
+// TrustChat XFTP file-creation password (the PASS part of xftp://<fingerprint>:<PASS>@host:port).
+// Injected into Info.plist as TrustChatXFTPPassword. Same character rules. Leave unset if the server has no password.
+TRUSTCHAT_XFTP_PASSWORD =

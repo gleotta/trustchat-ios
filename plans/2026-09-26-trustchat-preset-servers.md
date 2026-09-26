@@ -8,7 +8,7 @@ The iOS app inherits SimpleX's preset operators (SimpleX Chat, Flux) and their S
 
 ## Solution
 
-A bundled configuration file `apps/ios/Shared/TrustChat/TrustChatConfig.plist` holds the public server data (host, port, fingerprint) for SMP and XFTP and the push flag. The SMP queue-creation password is injected at build time from the gitignored `apps/ios/Local.xcconfig` (`TRUSTCHAT_SMP_PASSWORD`) into the app `Info.plist` key `TrustChatSMPPassword`; it never enters git.
+A bundled configuration file `apps/ios/Shared/TrustChat/TrustChatConfig.plist` holds the public server data (host, port, fingerprint) for SMP and XFTP and the push flag. The create passwords (SMP queues `TRUSTCHAT_SMP_PASSWORD` → `Info.plist` key `TrustChatSMPPassword`; XFTP files `TRUSTCHAT_XFTP_PASSWORD` → `TrustChatXFTPPassword`) are injected at build time from the gitignored `apps/ios/Local.xcconfig`; they never enter git.
 
 `TrustChatConfig.swift` loads the file and, on every `startChat`, right after `apiStartChat` (the core's `APIGetUserServers`/`APISetUserServers` handlers use `withUser`, which requires a started chat; a new profile has no queues so nothing connects in between), rewrites the current user's server configuration through the existing `APISetUserServers` command: preset operators disabled, TrustChat SMP and XFTP added as custom servers (enabled, storage + proxy roles), any other custom server deleted. The core persists this in `protocol_servers` / `server_operators`, so the NSE and SE inherit it. Because both protocols have an enabled TrustChat server, the core's random-preset fallback (`useServerCfgs`) never triggers and `validateUserServers` passes.
 
@@ -31,9 +31,10 @@ No core rebuild is needed. NTF preset servers, chat relays, the SimpleX team con
 
 ## Implementation steps
 
-1. Add `TrustChatConfig.plist`, `TrustChatConfig.swift`, `Local.xcconfig.example`; add `TrustChatSMPPassword` to `SimpleX--iOS--Info.plist`; register files in `project.pbxproj`.
+1. Add `TrustChatConfig.plist`, `TrustChatConfig.swift`, `Local.xcconfig.example`; add `TrustChatSMPPassword` and `TrustChatXFTPPassword` to `SimpleX--iOS--Info.plist`; register files in `project.pbxproj`.
 2. Add sync wrappers and the two `startChat` hooks in `SimpleXAPI.swift`; gate APNs in `AppDelegate.swift`; skip onboarding steps in `CreateProfile.swift`.
 3. Build the `SimpleX (iOS)` scheme for the simulator.
 4. UI test in `Tests iOS`: fresh install → onboarding → create 1-time link → assert the link host is the TrustChat SMP and no `simplex.im` host appears.
 5. Update `apps/ios/spec/architecture.md`, `spec/impact.md`, `product/rules.md`, `product/views/onboarding.md`, `product/concepts.md`, `CODE.md` Document Map, `README.trustchat.md`.
 6. Record evidence in `~/trustchat-evidence/mvp0/it-06/` and commit on `mvp0`.
+7. Follow-up (2026-09-26): `Test server` on the XFTP entry failed at `Create file` (AUTH) because the Railway server was initialised with `PASS`, and with the password at `Upload file` (`FILE_IO`) because the image never creates `/srv/xftp` (upstream mounts it as a volume). Client side: inject `TRUSTCHAT_XFTP_PASSWORD` like the SMP one. Server side: Railway start command `/bin/sh -c "mkdir -p /srv/xftp && exec /usr/local/bin/entrypoint"` (see `README.trustchat.md`). UI test `testTrustChatXFTPServerTest` runs `Test server` on the preset XFTP entry and, when `TEST_RUNNER_TRUSTCHAT_TEST_XFTP_ADDRESS` is set, on a manually added address; evidence in `~/trustchat-evidence/mvp0/it-06/xftp-test/`.
