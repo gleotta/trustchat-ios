@@ -14,7 +14,7 @@ The product specification, architecture and work guides live in a separate sibli
 
 | Document | Role |
 |---|---|
-| `TRUSTCHAT-SPEC.md` | **Master document** (v1.2). Functional and technical spec, approved decisions D-01…D-12, user stories US-001…US-055, demo deliverables and acceptance criteria, open questions. |
+| `TRUSTCHAT-SPEC.md` | **Master document** (v1.3; §14 records the demo decisions). Functional and technical spec, approved decisions D-01…D-12, user stories US-001…US-055, demo deliverables and acceptance criteria, open questions. |
 | `TRUSTCHAT-ARCHITECTURE.md` | Technical and security architecture for the demo (v1.0): ADRs, trust boundaries, server-identity and application-authentication contracts, SMP gate coverage, threat model, acceptance tests. Binding design; it never changes scope. |
 | `TRUSTCHAT-IOS-TASKS.md` | **Executable guide for this repository**: iOS reconnaissance, branding, embedded server config, application identity and transport gate, capability restrictions, tests, three-day plan, Definition of Done. |
 | `TRUSTCHAT-SMP-TASKS.md` | Same for the SMP server fork (a separate repo). Read it for the client/server auth contract and integration gates; do not implement server work here. |
@@ -22,10 +22,11 @@ The product specification, architecture and work guides live in a separate sibli
 
 Precedence and rules that the documents themselves impose:
 
-- SPEC v1.2 overrides the backlog. In particular, the backlog's per-device credentials and allowlists are obsolete; the approved model is a **shared application identity** (one key pair per app build, cryptographic proof of possession per transport session, no server-side user or device registry).
+- SPEC (v1.3) overrides the backlog. In particular, the backlog's per-device credentials and allowlists are obsolete; the approved model is a **shared application identity** (one key pair per app build, cryptographic proof of possession per transport session, no server-side user or device registry).
 - ARCHITECTURE and both TASKS guides derive from SPEC and cannot add scope or user stories. If code and docs disagree, note the discrepancy rather than silently choosing.
 - The iOS tasks guide instructs: implement only what the spec defines, never invent paths, symbols, FFI functions or CLI options, inspect the repository first, and record evidence (paths, symbols, commits, test output). If the SMP auth contract is not closed, run the compatibility spike before coding the final solution.
-- Demo MVP scope is one TrustChat SMP relay by IP and fingerprint, 1:1 encrypted text, QR contacts, no XFTP, push, groups, calls, Tor or proxying to external relays. Target demo date is 27 September 2026.
+- Demo MVP scope (SPEC v1.3): one TrustChat SMP and one TrustChat XFTP, 1:1 encrypted text and files, QR contacts; no push, groups, calls, Tor or proxying to external relays. Target demo date is 27 September 2026.
+- Current state and next steps: `TRUSTCHAT-IOS-SPRINT-PLAN.md` §11 in `../trustchat-docs` (local, not committed). Evidence lives outside the repo in `~/trustchat-evidence/mvp0/<task>/`.
 
 Upstream's project docs are the canonical reference for structure and coding style and are imported here:
 
@@ -115,7 +116,8 @@ fourmolu -i src/Simplex/Chat/Some/File.hs     # format before committing (config
 
 - Never commit `apps/ios/Libraries/`, `result-ios-*` symlinks, DerivedData, `.xcarchive`/`.ipa`, signing material, or a full `smp://<fingerprint>:<password>@host:port` address. The SMP address contains a credential; use placeholders in docs, issues and tests.
 - The TrustChat SMP server address format is `smp://<FINGERPRINT>:<PASS>@host:port` with no scheme prefix other than `smp://`, no trailing slash, and the public port (not the container-internal 5223). From the simulator, `127.0.0.1` reaches a server on the Mac; from a physical iPhone it does not.
-- Adding the TrustChat SMP server does not disable upstream's preset servers, XFTP file servers, or push infrastructure. Do not describe traffic as fully under TrustChat control unless those are also replaced and verified.
+- On branch `mvp0`, `apps/ios/Shared/TrustChat/TrustChatConfig.{plist,swift}` impose the TrustChat SMP and XFTP at runtime (operators disabled, other servers removed) and reject links/QR codes naming any other server (RULE-24, RULE-25 in `apps/ios/product/rules.md`). NTF presets, chat relays and short-link preset domains still live in the core binary without network contact; do not describe traffic as fully under TrustChat control beyond what is verified.
+- SMP and XFTP create passwords live only in the gitignored `apps/ios/Local.xcconfig` (`TRUSTCHAT_SMP_PASSWORD`, `TRUSTCHAT_XFTP_PASSWORD`); never print, log or commit them.
 - Do not disable App Transport Security or TLS validation to work around a development problem.
 - Before committing run `git diff --check` and review `git status --short`; `update-pbxproj.sh` and `update-version.sh` edit `project.pbxproj` and their diffs should be inspected.
 

@@ -828,18 +828,24 @@ Usar **Product → Clean Build Folder**, cerrar Xcode, volver a abrir el proyect
 y compilar nuevamente. No borrar indiscriminadamente todo `~/Library` ni el
 Nix store.
 
-### La app queda pausada en Xcode al recibir un mensaje (simulador)
+### La app queda pausada en Xcode al recibir un mensaje (simulador) — **abierto**
 
 Síntoma: con Run desde Xcode, al llegar un mensaje la app deja de responder y el
-depurador muestra un hilo `ghc_worker` con `EXC_BAD_ACCESS` en `threadPaused`.
-Sin Xcode la app se cierra en lugar de congelarse. Es un crash del runtime de
-GHC 9.6.3 con el recolector no-móvil (`-xn`), compatible con los bugs corregidos
-en GHC 9.6.4/9.6.5. El fork desactiva `-xn` **solo en builds de simulador**
-(`apps/ios/SimpleXChat/hs_init.c`, `TARGET_OS_SIMULATOR`); en iPhone físico el
-runtime arranca igual que upstream. El arreglo de fondo, recompilar el core con
-GHC ≥ 9.6.5 (`compiler-nix-name` en `flake.nix`, rebuild completo de
-dependencias), está registrado para el sprint 2. Si reaparece en dispositivo,
-quitar `-xn` también ahí es un cambio de una línea en el mismo archivo.
+depurador muestra un hilo `ghc_worker` con `EXC_BAD_ACCESS` en `threadPaused`
+(crash del runtime de GHC 9.6.3 del core). **Causa sin confirmar.**
+
+- Se probó quitar el GC no-móvil `-xn` solo en simulador
+  (`apps/ios/SimpleXChat/hs_init.c`, `TARGET_OS_SIMULATOR`); se deja el cambio
+  hasta revisar.
+- Lanzada desde línea de comandos (`xcrun simctl launch`, sin depurador) la app
+  funcionó al recibir mensajes. Desde Xcode volvió a quedar pausada en el mismo
+  punto; el framework de ese build no contenía `-xn`. Falta descartar que Xcode
+  estuviera compilando otra rama o un DerivedData viejo.
+- Para revisar: correr desde Xcode en `mvp0` tras *Clean Build Folder*; si se
+  repite, lanzar sin depurador y leer el `.ips` en
+  `~/Library/Logs/DiagnosticReports`. Evidencia en
+  `~/trustchat-evidence/mvp0/it-11/simulator-hang-report.md`.
+- Arreglo de fondo candidato para el sprint 2: core con GHC ≥ 9.6.5.
 
 ## Política de Git
 

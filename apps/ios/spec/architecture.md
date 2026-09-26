@@ -132,7 +132,7 @@ All FFI calls are wrapped in [`beginBGTask()`](../Shared/Model/SimpleXAPI.swift#
 
 ### [Haskell runtime options (hs_init.c)](../SimpleXChat/hs_init.c#L14-L34)
 
-Each target starts the GHC runtime with its own `hs_init_with_rtsopts` arguments: the app uses `-A64m -H64m -xn` (non-moving GC), the NSE and SE use small heaps and no `-xn`. **TrustChat:** on simulator builds (`TARGET_OS_SIMULATOR`) the app omits `-xn`, because GHC 9.6.3's non-moving GC crashes in `threadPaused` (`EXC_BAD_ACCESS` in a `ghc_worker` thread) on the x86_64 simulator when messages are received; device builds are unchanged. The permanent fix is a core built with GHC >= 9.6.5 (planned for sprint 2, see `README.trustchat.md`).
+Each target starts the GHC runtime with its own `hs_init_with_rtsopts` arguments: the app uses `-A64m -H64m -xn` (non-moving GC), the NSE and SE use small heaps and no `-xn`. **TrustChat:** on simulator builds (`TARGET_OS_SIMULATOR`) the app omits `-xn`. This was a trial against a GHC 9.6.3 runtime crash (`EXC_BAD_ACCESS` in `threadPaused` on a `ghc_worker` thread) seen under the Xcode debugger when messages arrive; it is **not confirmed** to fix it (open issue, see `README.trustchat.md`). Device builds are unchanged.
 
 ## [3. Event Streaming](../Shared/Model/SimpleXAPI.swift#L2220-L2916)
 
